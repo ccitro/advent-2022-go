@@ -8,6 +8,13 @@ import (
 
 type forest [][]int
 
+var directions = [][]int{
+	{-1, 0},
+	{1, 0},
+	{0, 1},
+	{0, -1},
+}
+
 func readForest(file *os.File) *forest {
 	sc := bufio.NewScanner(file)
 	f := forest{}
@@ -36,48 +43,30 @@ func isVisible(f *forest, r int, c int) bool {
 
 	tree_height := (*f)[r][c]
 
-	all_shorter := true
-	for i := r - 1; i >= 0; i-- {
-		if (*f)[i][c] >= tree_height {
-			all_shorter = false
-			break
-		}
-	}
-	if all_shorter {
-		return true
-	}
+	for _, d := range directions {
+		x := r
+		y := c
 
-	all_shorter = true
-	for i := r + 1; i < h; i++ {
-		if (*f)[i][c] >= tree_height {
-			all_shorter = false
-			break
-		}
-	}
-	if all_shorter {
-		return true
-	}
+		all_shorter := true
+		for {
+			x += d[0]
+			y += d[1]
+			if x < 0 || y < 0 || x >= h || y >= w {
+				break
+			}
 
-	all_shorter = true
-	for i := c - 1; i >= 0; i-- {
-		if (*f)[r][i] >= tree_height {
-			all_shorter = false
-			break
+			if (*f)[x][y] >= tree_height {
+				all_shorter = false
+				break
+			}
 		}
-	}
-	if all_shorter {
-		return true
-	}
 
-	all_shorter = true
-	for i := c + 1; i < w; i++ {
-		if (*f)[r][i] >= tree_height {
-			all_shorter = false
-			break
+		if all_shorter {
+			return true
 		}
 	}
 
-	return all_shorter
+	return false
 }
 
 func part1(file *os.File) {
