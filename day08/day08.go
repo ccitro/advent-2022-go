@@ -69,6 +69,38 @@ func isVisible(f *forest, r int, c int) bool {
 	return false
 }
 
+func calculateViewingDistance(f *forest, r int, c int, d []int) int {
+	view_distance := 0
+	source_tree_height := (*f)[r][c]
+
+	for {
+		r += d[0]
+		c += d[1]
+		if r < 0 || c < 0 || r >= len(*f) || c >= len((*f)[r]) {
+			break
+		}
+
+		view_distance++
+		loop_tree_height := (*f)[r][c]
+		if loop_tree_height >= source_tree_height {
+			break
+		}
+	}
+
+	return view_distance
+}
+
+func calculateScenicScore(f *forest, r int, c int) int {
+	score := 1
+
+	for _, d := range directions {
+		view_distance := calculateViewingDistance(f, r, c, d)
+		score *= view_distance
+	}
+
+	return score
+}
+
 func part1(file *os.File) {
 	forest := readForest(file)
 	visible_count := 0
@@ -84,11 +116,18 @@ func part1(file *os.File) {
 }
 
 func part2(file *os.File) {
-	sc := bufio.NewScanner(file)
-	for sc.Scan() {
-		line := sc.Text()
-		println(line)
+	forest := readForest(file)
+	highest_score := 0
+	for r := 0; r < len(*forest); r++ {
+		for c := 0; c < len((*forest)[r]); c++ {
+			score := calculateScenicScore(forest, r, c)
+			if score > highest_score {
+				highest_score = score
+			}
+		}
 	}
+
+	println(highest_score)
 }
 
 func main() {
