@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"os"
+	"strings"
 )
 
 func getPriority(item_type string) int {
@@ -14,10 +15,41 @@ func getPriority(item_type string) int {
 	return ascii - 64 + 26
 }
 
-func main() {
-	file, _ := os.Open("input.txt")
-	defer file.Close()
+func part1(file *os.File) {
+	var rucksack [53]int
+	priority_sum := 0
 
+	sc := bufio.NewScanner(file)
+	for sc.Scan() {
+		line := sc.Text()
+		if line == "" {
+			continue
+		}
+
+		rucksack_size := len(line)
+		for i := 0; i < rucksack_size/2; i++ {
+			priority := getPriority(line[i : i+1])
+			rucksack[priority] = 1
+		}
+
+		for i := rucksack_size / 2; i < rucksack_size; i++ {
+			priority := getPriority(line[i : i+1])
+			if rucksack[priority] == 1 {
+				priority_sum += priority
+				break
+			}
+		}
+
+		// reset rucksack for next line
+		for i := 0; i < len(rucksack); i++ {
+			rucksack[i] = 0
+		}
+	}
+
+	println(priority_sum)
+}
+
+func part2(file *os.File) {
 	// a slot in the array for each possible priority (a-z, A-Z)
 	// the array is one larger than necessary so that the index matches the priority
 	var rucksack [53]bool
@@ -66,4 +98,21 @@ func main() {
 	}
 
 	println(priority_sum)
+}
+
+func main() {
+	filename := "input.txt"
+	method := part1
+	for _, v := range os.Args {
+		if v == "part2" || v == "2" {
+			method = part2
+		}
+		if strings.HasSuffix(v, ".txt") {
+			filename = v
+		}
+	}
+
+	file, _ := os.Open(filename)
+	defer file.Close()
+	method(file)
 }

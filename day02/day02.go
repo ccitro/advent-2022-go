@@ -3,7 +3,45 @@ package main
 import (
 	"bufio"
 	"os"
+	"strings"
 )
+
+func part1(file *os.File) {
+	shape_scores := map[string]int{"X": 1, "Y": 2, "Z": 3}
+	const SCORE_WIN = 6
+	const SCORE_DRAW = 3
+	const SCORE_LOSS = 0
+
+	outcomes := map[string]int{
+		"A X": SCORE_DRAW,
+		"A Y": SCORE_WIN,
+		"A Z": SCORE_LOSS,
+		"B X": SCORE_LOSS,
+		"B Y": SCORE_DRAW,
+		"B Z": SCORE_WIN,
+		"C X": SCORE_WIN,
+		"C Y": SCORE_LOSS,
+		"C Z": SCORE_DRAW,
+	}
+
+	score := 0
+
+	sc := bufio.NewScanner(file)
+	for sc.Scan() {
+		line := sc.Text()
+		if line == "" {
+			continue
+		}
+
+		my_shape := line[2:3]
+		score += shape_scores[my_shape] + outcomes[line]
+	}
+
+	println(score)
+
+}
+
+// start part 2
 
 type MatchScore int
 
@@ -59,10 +97,7 @@ func score_match(my_shape string, op_shape string) MatchScore {
 	return LOSS
 }
 
-func main() {
-	file, _ := os.Open("input.txt")
-	defer file.Close()
-
+func part2(file *os.File) {
 	score := 0
 
 	sc := bufio.NewScanner(file)
@@ -81,4 +116,21 @@ func main() {
 	}
 
 	println(score)
+}
+
+func main() {
+	filename := "input.txt"
+	method := part1
+	for _, v := range os.Args {
+		if v == "part2" || v == "2" {
+			method = part2
+		}
+		if strings.HasSuffix(v, ".txt") {
+			filename = v
+		}
+	}
+
+	file, _ := os.Open(filename)
+	defer file.Close()
+	method(file)
 }
