@@ -61,6 +61,25 @@ func part1(file *os.File) {
 }
 
 func part2(file *os.File) {
+	cpu := buildCPU()
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		cpu.execute(scanner.Text())
+	}
+
+	for y := 0; y < 6; y++ {
+		for x := 1; x <= 40; x++ {
+			cycle := y*40 + x
+			sprit_pos := cpu.xreg_history[cycle]
+			if (x-1) >= sprit_pos-1 && (x-1) <= sprit_pos+1 {
+				print("#")
+			} else {
+				print(".")
+			}
+		}
+		println("")
+	}
+
 }
 
 func main() {
