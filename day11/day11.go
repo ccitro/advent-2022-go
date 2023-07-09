@@ -83,7 +83,7 @@ func (m *monkey) print() {
 	println("")
 }
 
-func runRound(m *monkey, monkeys []*monkey) {
+func runRound(m *monkey, monkeys []*monkey, worryDivisor int) {
 	fmt.Printf("Monkey %d:\n", m.id)
 
 	for len(m.items) > 0 {
@@ -105,8 +105,13 @@ func runRound(m *monkey, monkeys []*monkey) {
 			fmt.Printf("    Worry level is multiplied by %d to %d\n", operationScalar, v)
 		}
 
-		v /= 3
-		fmt.Printf("    Monkey gets bored with item. Worry level is divided by 3 to %d\n", v)
+		// sorry, I really should have put a mode in for this, but I'm lazy
+		if worryDivisor == 3 {
+			v /= worryDivisor // part 1
+		} else {
+			v %= worryDivisor // part 2
+		}
+		fmt.Printf("    Monkey gets bored with item. Worry level is divided by %d to %d\n", worryDivisor, v)
 
 		isDivisible := v%m.divisorTest == 0
 		target := -1
@@ -128,10 +133,11 @@ func runRound(m *monkey, monkeys []*monkey) {
 func part1(file *os.File) {
 	monkeys := readMonkeys(file)
 	roundsRemaining := 20
+	worryDivisor := 3
 
 	for roundsRemaining > 0 {
 		for _, m := range monkeys {
-			runRound(m, monkeys)
+			runRound(m, monkeys, worryDivisor)
 		}
 		roundsRemaining--
 	}
@@ -157,6 +163,43 @@ func part1(file *os.File) {
 }
 
 func part2(file *os.File) {
+	monkeys := readMonkeys(file)
+	roundsRemaining := 10000
+
+	// uses the chinese remainder theorem to say that modular division
+	// by the shared GCD of the divisors will have a unique remainder that
+	// doesn't change the solution for each individual monkey
+	worryDivisor := 1
+	for _, m := range monkeys {
+		worryDivisor *= m.divisorTest
+	}
+
+	for roundsRemaining > 0 {
+		for _, m := range monkeys {
+			runRound(m, monkeys, worryDivisor)
+		}
+		roundsRemaining--
+	}
+	for _, m := range monkeys {
+		m.print()
+	}
+
+	inspectPlace1 := 0
+	inspectPlace2 := 0
+	for _, m := range monkeys {
+		fmt.Printf("Monkey %d inspected items %d times\n", m.id, m.inspectCount)
+		if m.inspectCount > inspectPlace1 {
+			inspectPlace2 = inspectPlace1
+			inspectPlace1 = m.inspectCount
+		} else if m.inspectCount > inspectPlace2 {
+			inspectPlace2 = m.inspectCount
+		}
+	}
+
+	fmt.Printf("The two monkeys who inspected the most items are %d and %d\n", inspectPlace1, inspectPlace2)
+	monkeyBusiness := inspectPlace1 * inspectPlace2
+	println(monkeyBusiness)
+
 }
 
 func main() {
