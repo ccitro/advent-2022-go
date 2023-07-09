@@ -10,6 +10,7 @@ import (
 
 type monkey struct {
 	id              int
+	inspectCount    int
 	items           []int
 	operationChar   rune
 	operationScalar int
@@ -18,9 +19,9 @@ type monkey struct {
 	failureTarget   int
 }
 
-func readMonkeys(file *os.File) []monkey {
+func readMonkeys(file *os.File) []*monkey {
 	scanner := bufio.NewScanner(file)
-	monkeys := make([]monkey, 0)
+	monkeys := make([]*monkey, 0)
 	seq := -1
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -29,7 +30,8 @@ func readMonkeys(file *os.File) []monkey {
 		}
 
 		seq++
-		monkeys = append(monkeys, monkey{id: seq})
+		m := monkey{id: seq, inspectCount: 0}
+		monkeys = append(monkeys, &m)
 
 		scanner.Scan()
 		line = scanner.Text() // Starting items
@@ -81,58 +83,77 @@ func (m *monkey) print() {
 	println("")
 }
 
+func runRound(m *monkey, monkeys []*monkey) {
+	fmt.Printf("Monkey %d:\n", m.id)
+
+	for len(m.items) > 0 {
+		v := m.items[0]
+		m.items = m.items[1:]
+		fmt.Printf("  Monkey inspects an item with worry level of %d\n", v)
+		m.inspectCount++
+
+		operationScalar := m.operationScalar
+		if operationScalar == -1 {
+			operationScalar = v
+		}
+
+		if m.operationChar == '+' {
+			v += operationScalar
+			fmt.Printf("    Worry level increases by %d to %d\n", operationScalar, v)
+		} else {
+			v *= operationScalar
+			fmt.Printf("    Worry level is multiplied by %d to %d\n", operationScalar, v)
+		}
+
+		v /= 3
+		fmt.Printf("    Monkey gets bored with item. Worry level is divided by 3 to %d\n", v)
+
+		isDivisible := v%m.divisorTest == 0
+		target := -1
+		if isDivisible {
+			fmt.Printf("    Current worry level is divisible by %d\n", m.divisorTest)
+			target = m.successTarget
+		} else {
+			fmt.Printf("    Current worry level is not divisible by %d\n", m.divisorTest)
+			target = m.failureTarget
+		}
+
+		fmt.Printf("    Item with worry level %d is thrown to monkey %d\n", v, target)
+		monkeys[target].items = append(monkeys[target].items, v)
+	}
+	println("")
+
+}
+
 func part1(file *os.File) {
 	monkeys := readMonkeys(file)
 	roundsRemaining := 20
 
 	for roundsRemaining > 0 {
 		for _, m := range monkeys {
-			fmt.Printf("Monkey %d:\n", m.id)
-
-			// loop as long as there are items to throw
-			for len(m.items) > 0 {
-				v := m.items[0]
-				// @todo fix slices
-				m.items = m.items[1:]
-				fmt.Printf("  Monkey inspects an item with worry level of %d\n", v)
-
-				operationScalar := m.operationScalar
-				if operationScalar == -1 {
-					operationScalar = v
-				}
-
-				if m.operationChar == '+' {
-					v += operationScalar
-					fmt.Printf("    Worry level increases by %d to %d\n", operationScalar, v)
-				} else {
-					v *= operationScalar
-					fmt.Printf("    Worry level is multiplied by %d to %d\n", operationScalar, v)
-				}
-
-				v /= 3
-				fmt.Printf("    Monkey gets bored with item. Worry level is divided by 3 to %d\n", v)
-
-				isDivisible := v%m.divisorTest == 0
-				target := -1
-				if isDivisible {
-					fmt.Printf("    Current worry level is divisible by %d\n", m.divisorTest)
-					target = m.successTarget
-				} else {
-					fmt.Printf("    Current worry level is not divisible by %d\n", m.divisorTest)
-					target = m.failureTarget
-				}
-
-				fmt.Printf("    Item with worry level %d is thrown to monkey %d\n", v, target)
-				monkeys[target].items = append(monkeys[target].items, v)
-			}
-			println("")
+			runRound(m, monkeys)
 		}
 		roundsRemaining--
-		for _, m := range monkeys {
-			m.print()
-		}
-		break
 	}
+	for _, m := range monkeys {
+		m.print()
+	}
+
+	inspectPlace1 := 0
+	inspectPlace2 := 0
+	for _, m := range monkeys {
+		fmt.Printf("Monkey %d inspected items %d times\n", m.id, m.inspectCount)
+		if m.inspectCount > inspectPlace1 {
+			inspectPlace2 = inspectPlace1
+			inspectPlace1 = m.inspectCount
+		} else if m.inspectCount > inspectPlace2 {
+			inspectPlace2 = m.inspectCount
+		}
+	}
+
+	fmt.Printf("The two monkeys who inspected the most items are %d and %d\n", inspectPlace1, inspectPlace2)
+	monkeyBusiness := inspectPlace1 * inspectPlace2
+	println(monkeyBusiness)
 }
 
 func part2(file *os.File) {
