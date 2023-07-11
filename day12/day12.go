@@ -134,7 +134,6 @@ func getNeighborWeight(current int, neighbor int, hm *heightmap) int {
 }
 
 func A_Star(start int, goal int, hm *heightmap) *path {
-	inspections := 0
 	openSet := make(map[int]bool)
 	openSet[start] = true
 
@@ -154,13 +153,11 @@ func A_Star(start int, goal int, hm *heightmap) *path {
 		}
 
 		if current == goal {
-			fmt.Printf("Inspected %d nodes\n", inspections)
 			return reconstructPath(cameFrom, current, start)
 		}
 
 		delete(openSet, current)
 		for _, neighbor := range getNeighbors(current, hm) {
-			inspections++
 			tentative_gScore := gScore[current] + getNeighborWeight(current, neighbor, hm)
 			neighborScore := gScore[neighbor]
 			if neighborScore == 0 {
@@ -178,7 +175,7 @@ func A_Star(start int, goal int, hm *heightmap) *path {
 		}
 	}
 
-	panic("No path found")
+	return nil
 }
 
 func findShortestPath(hm *heightmap) *path {
@@ -212,6 +209,28 @@ func part1(file *os.File) {
 }
 
 func part2(file *os.File) {
+	hm := loadHeightmap(file)
+	hm.print()
+
+	path := findShortestPath(hm)
+	fewestSteps := len(*path) - 1
+	fmt.Printf("Initial starting point required %d steps\n", fewestSteps)
+
+	// you could probably reverse the search, and search from the "end" point to any point with a height of 0
+	// but the A* search is fast enough to just check every point with a height of 0 as a starting point
+
+	for i := 0; i < len(hm.terrain); i++ {
+		if hm.terrain[i] == 0 {
+			hm.start = i
+			path = findShortestPath(hm)
+			if path != nil && len(*path)-1 < fewestSteps {
+				fewestSteps = len(*path) - 1
+				fmt.Printf("New starting point required %d steps\n", fewestSteps)
+			}
+		}
+	}
+
+	fmt.Printf("Overall fewest steps: %d\n", fewestSteps)
 }
 
 func main() {
