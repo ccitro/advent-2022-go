@@ -7,55 +7,49 @@ import (
 	"strings"
 )
 
-type point struct {
-	x, y int
-}
-
-type path struct {
-	points []point
-}
+type path = []int
 
 type heightmap struct {
-	terrain [][]int
-	start   point
-	end     point
+	terrain []int
+	maxX    int
+	start   int
+	end     int
 }
 
-var dirs = [4]point{
-	{x: 0, y: 1},
-	{x: 1, y: 0},
-	{x: 0, y: -1},
-	{x: -1, y: 0},
+func coordsToIndex(x, y, maxX int) int {
+	return y*maxX + x
 }
 
 func loadHeightmap(file *os.File) *heightmap {
-	hm := heightmap{}
-	scanner := bufio.NewScanner(file)
+	hm := heightmap{maxX: 0}
 	y := 0
+
+	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
-		row := make([]int, len(line))
+		if len(line) > hm.maxX {
+			hm.maxX = len(line)
+		}
 		for i, v := range line {
 			if v == 'S' {
-				hm.start = point{x: i, y: y}
+				hm.start = coordsToIndex(i, y, hm.maxX)
 				v = 'a'
 			} else if v == 'E' {
-				hm.end = point{x: i, y: y}
+				hm.end = coordsToIndex(i, y, hm.maxX)
 				v = 'z'
 				// v = 'l'
 			}
 
-			row[i] = int(v - 'a')
+			hm.terrain = append(hm.terrain, int(v-'a'))
 		}
-		hm.terrain = append(hm.terrain, row)
 		y++
 	}
 
 	return &hm
 }
 
-func pathContainsPoint(p *path, pt point) bool {
-	for _, v := range p.points {
+func pathContainsPoint(p *path, pt int) bool {
+	for _, v := range *p {
 		if v == pt {
 			return true
 		}
@@ -64,63 +58,85 @@ func pathContainsPoint(p *path, pt point) bool {
 }
 
 func findShortestPath(hm *heightmap) *path {
-	pathsLeft := []*path{{points: []point{hm.start}}}
-	maxX := len(hm.terrain[0])
-	maxY := len(hm.terrain)
-	seenPoints := make(map[point]bool)
+	defaultPath := path{hm.start}
+	pathsLeft := []*path{&defaultPath}
 
+	maxX := hm.maxX
+	maxIndex := len(hm.terrain) - 1
 	for len(pathsLeft) > 0 {
+		fmt.Printf("Paths left: %d\n", len(pathsLeft))
 		thisPath := pathsLeft[0]
-		pathsLeft = append([]*path{}, pathsLeft[1:]...)
+		pathsLeft = pathsLeft[1:]
 
-		currentPoint := thisPath.points[len(thisPath.points)-1]
-		currentHeight := hm.terrain[currentPoint.y][currentPoint.x]
+		currentPoint := (*thisPath)[len(*thisPath)-1]
+		currentHeight := hm.terrain[currentPoint]
 		if currentPoint == hm.end {
 			return thisPath
 		}
-		seenPoints[currentPoint] = true
 
-		for _, dir := range dirs {
-			nextPoint := point{x: currentPoint.x + dir.x, y: currentPoint.y + dir.y}
-			if nextPoint.x < 0 || nextPoint.x >= maxX || nextPoint.y < 0 || nextPoint.y >= maxY {
-				continue
-			}
-
-			if seenPoints[nextPoint] {
-				continue
+		for i := 0; i < 4; i++ {
+			nextPoint := currentPoint
+			if i == 0 {
+				// east
+				nextPoint++
+				if nextPoint%maxX == 0 {
+					continue
+				}
+			} else if i == 1 {
+				// south
+				nextPoint += maxX
+				if nextPoint > maxIndex {
+					continue
+				}
+			} else if i == 2 {
+				// west
+				nextPoint--
+				if nextPoint%maxX == maxX-1 || nextPoint < 0 {
+					continue
+				}
+			} else if i == 3 {
+				// north
+				nextPoint -= maxX
+				if nextPoint < 0 {
+					continue
+				}
 			}
 
 			if pathContainsPoint(thisPath, nextPoint) {
 				continue
 			}
 
-			nextHeight := hm.terrain[nextPoint.y][nextPoint.x]
-			if nextHeight-currentHeight > 1 {
+			nextHeight := hm.terrain[nextPoint]
+			heightDifference := nextHeight - currentHeight
+			if heightDifference > 1 {
 				continue
 			}
 
-			newPoints := make([]point, len(thisPath.points)+1)
-			copy(newPoints, thisPath.points)
-			newPoints[len(newPoints)-1] = nextPoint
-			pathsLeft = append(pathsLeft, &path{points: newPoints})
+			newPath := make(path, len(*thisPath))
+			copy(newPath, *thisPath)
+			newPath = append(newPath, nextPoint)
+
+			pathsLeft = append(pathsLeft, &newPath)
 		}
+
 	}
 
 	panic("No path found")
 }
 
 func (hm *heightmap) print() {
-	for y, row := range hm.terrain {
-		for x, v := range row {
-			if x == hm.start.x && y == hm.start.y {
-				print("S")
-			} else if x == hm.end.x && y == hm.end.y {
-				print("E")
-			} else {
-				print(string(rune(v + 'a')))
-			}
+	for i := 0; i < len(hm.terrain); i++ {
+		if i == hm.start {
+			print("S")
+		} else if i == hm.end {
+			print("E")
+		} else {
+			print(string(rune(hm.terrain[i] + 'a')))
 		}
-		println()
+
+		if i%hm.maxX == hm.maxX-1 {
+			println()
+		}
 	}
 	println()
 }
@@ -130,7 +146,7 @@ func part1(file *os.File) {
 	hm.print()
 
 	path := findShortestPath(hm)
-	fmt.Printf("Found path of length %d\n", len(path.points))
+	fmt.Printf("Found path of length %d\n", len(*path))
 }
 
 func part2(file *os.File) {
