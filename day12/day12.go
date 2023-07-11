@@ -128,12 +128,17 @@ func getNeighbors(current int, hm *heightmap) []int {
 }
 
 func getNeighborWeight(current int, neighbor int, hm *heightmap) int {
+	// this is actually worse than a hardcoded value of 1
+	// I assumed that trying to climb up would be better than going down,
+	// but maybe the puzzle is designed to thwart that?
+	// i left it in place because its roughly equivalent to 1
 	currentHeight := hm.terrain[current]
 	neighborHeight := hm.terrain[neighbor]
 	return 2 - (neighborHeight - currentHeight)
 }
 
 func A_Star(start int, goal int, hm *heightmap) *path {
+	inspections := 0
 	openSet := make(map[int]bool)
 	openSet[start] = true
 
@@ -153,11 +158,13 @@ func A_Star(start int, goal int, hm *heightmap) *path {
 		}
 
 		if current == goal {
+			fmt.Printf("Inspected %d nodes\n", inspections)
 			return reconstructPath(cameFrom, current, start)
 		}
 
 		delete(openSet, current)
 		for _, neighbor := range getNeighbors(current, hm) {
+			inspections++
 			tentative_gScore := gScore[current] + getNeighborWeight(current, neighbor, hm)
 			neighborScore := gScore[neighbor]
 			if neighborScore == 0 {
