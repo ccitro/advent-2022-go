@@ -151,7 +151,7 @@ func A_Star(start int, goal int, hm *heightmap) *path {
 
 	for len(openSet) > 0 {
 		current := -1
-		for k, _ := range openSet {
+		for k := range openSet {
 			if current == -1 || fScore[k] < fScore[current] {
 				current = k
 			}
