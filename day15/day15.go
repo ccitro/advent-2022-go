@@ -15,7 +15,7 @@ type SensorData struct {
 	sensorRange int
 }
 
-func readSensorData(file *os.File) []SensorData {
+func readSensorData(file *os.File) *[]SensorData {
 	var sensorData []SensorData
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -35,7 +35,7 @@ func readSensorData(file *os.File) []SensorData {
 		sensorData = append(sensorData, SensorData{x, y, beaconX, beaconY, sensorRange})
 	}
 
-	return sensorData
+	return &sensorData
 }
 
 func (s *SensorData) print() {
@@ -49,9 +49,9 @@ func abs(x int) int {
 	return x
 }
 
-func isBeaconAt(x, y int, sensorData []SensorData) bool {
+func isBeaconAt(x, y int, sensorData *[]SensorData) bool {
 	// this could be stored in a map for faster lookup, but the array isn't large so this works fine
-	for _, v := range sensorData {
+	for _, v := range *sensorData {
 		if v.beaconX == x && v.beaconY == y {
 			return true
 		}
@@ -60,12 +60,12 @@ func isBeaconAt(x, y int, sensorData []SensorData) bool {
 	return false
 }
 
-func posCanHoldBeacon(x, y int, sensorData []SensorData) bool {
+func coordsCanHoldBeacon(x, y int, sensorData *[]SensorData) bool {
 	if isBeaconAt(x, y, sensorData) {
 		return true
 	}
 
-	for _, v := range sensorData {
+	for _, v := range *sensorData {
 		xDistanceToSensor := abs(v.x - x)
 		yDistanceToSensor := abs(v.y - y)
 		distanceToSensor := xDistanceToSensor + yDistanceToSensor
@@ -82,7 +82,7 @@ func part1(file *os.File) {
 	minX := 99999
 	maxX := -99999
 
-	for _, v := range sensorData {
+	for _, v := range *sensorData {
 		sensorMinX := v.x - v.sensorRange
 		sensorMaxX := v.x + v.sensorRange
 		if sensorMinX < minX {
@@ -97,7 +97,7 @@ func part1(file *os.File) {
 	row := 2000000
 	blockedPosCount := 0
 	for i := minX; i <= maxX; i++ {
-		if !posCanHoldBeacon(i, row, sensorData) {
+		if !coordsCanHoldBeacon(i, row, sensorData) {
 			blockedPosCount++
 		}
 	}
@@ -105,7 +105,50 @@ func part1(file *os.File) {
 	println(blockedPosCount)
 }
 
+type pos struct {
+	x int
+	y int
+}
+
+func posCanHoldBeacon(p pos, sensorData *[]SensorData) bool {
+	for _, v := range *sensorData {
+		xDistanceToSensor := abs(v.x - p.x)
+		yDistanceToSensor := abs(v.y - p.y)
+		distanceToSensor := xDistanceToSensor + yDistanceToSensor
+		if distanceToSensor <= v.sensorRange {
+			return false
+		}
+	}
+
+	return true
+}
+
 func part2(file *os.File) {
+	sensorData := readSensorData(file)
+	searchRange := 4000000
+
+	beaconLocations := make(map[pos]bool)
+	for _, v := range *sensorData {
+		beaconLocations[pos{v.beaconX, v.beaconY}] = true
+	}
+
+	sensorLocations := make(map[pos]bool)
+	for _, v := range *sensorData {
+		sensorLocations[pos{v.x, v.y}] = true
+	}
+
+	for x := 0; x < searchRange; x++ {
+		for y := 0; y < searchRange; y++ {
+			if (x%10) == 0 && y == 0 {
+				fmt.Printf("x=%d, y=%d\n", x, y)
+			}
+			p := pos{x, y}
+			if (!beaconLocations[p]) && (!sensorLocations[p]) && posCanHoldBeacon(p, sensorData) {
+				tuning := 4000000*x + y
+				fmt.Printf("Beacon is possible at x=%d, y=%d, tuning=%d\n", x, y, tuning)
+			}
+		}
+	}
 }
 
 func main() {
