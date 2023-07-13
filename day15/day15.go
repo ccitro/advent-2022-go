@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 type SensorData struct {
@@ -13,6 +14,10 @@ type SensorData struct {
 	beaconX     int
 	beaconY     int
 	sensorRange int
+	sensorMinX  int
+	sensorMaxX  int
+	sensorMinY  int
+	sensorMaxY  int
 }
 
 func readSensorData(file *os.File) *[]SensorData {
@@ -32,7 +37,12 @@ func readSensorData(file *os.File) *[]SensorData {
 		xDistance := abs(x - beaconX)
 		yDistance := abs(y - beaconY)
 		sensorRange := xDistance + yDistance
-		sensorData = append(sensorData, SensorData{x, y, beaconX, beaconY, sensorRange})
+		sensorMinX := x - sensorRange
+		sensorMaxX := x + sensorRange
+		sensorMinY := y - sensorRange
+		sensorMaxY := y + sensorRange
+
+		sensorData = append(sensorData, SensorData{x, y, beaconX, beaconY, sensorRange, sensorMinX, sensorMaxX, sensorMinY, sensorMaxY})
 	}
 
 	return &sensorData
@@ -105,48 +115,65 @@ func part1(file *os.File) {
 	println(blockedPosCount)
 }
 
-type pos struct {
-	x int
-	y int
-}
-
-func posCanHoldBeacon(p pos, sensorData *[]SensorData) bool {
-	for _, v := range *sensorData {
-		xDistanceToSensor := abs(v.x - p.x)
-		yDistanceToSensor := abs(v.y - p.y)
-		distanceToSensor := xDistanceToSensor + yDistanceToSensor
-		if distanceToSensor <= v.sensorRange {
-			return false
-		}
-	}
-
-	return true
-}
-
 func part2(file *os.File) {
 	sensorData := readSensorData(file)
 	searchRange := 4000000
+	// searchRange = 20
+	var blockingSensorData *SensorData
 
-	beaconLocations := make(map[pos]bool)
-	for _, v := range *sensorData {
-		beaconLocations[pos{v.beaconX, v.beaconY}] = true
-	}
-
-	sensorLocations := make(map[pos]bool)
-	for _, v := range *sensorData {
-		sensorLocations[pos{v.x, v.y}] = true
-	}
-
+	lastTs := time.Now()
 	for x := 0; x < searchRange; x++ {
 		for y := 0; y < searchRange; y++ {
-			if (x%10) == 0 && y == 0 {
-				fmt.Printf("x=%d, y=%d\n", x, y)
+			// fmt.Printf("Checking x=%d, y=%d\n", x, y)
+			if (x%1000000) == 10 && y == 0 {
+				n := time.Now()
+				elapsed := n.Sub(lastTs).Seconds()
+				percentComplete := float64(x) / float64(searchRange)
+				estimatedTimeRemaining := elapsed / percentComplete
+				fmt.Printf("x=%d, y=%d, percent complete: %f, estimated time remaining: %f\n", x, y, percentComplete, estimatedTimeRemaining)
 			}
-			p := pos{x, y}
-			if (!beaconLocations[p]) && (!sensorLocations[p]) && posCanHoldBeacon(p, sensorData) {
-				tuning := 4000000*x + y
-				fmt.Printf("Beacon is possible at x=%d, y=%d, tuning=%d\n", x, y, tuning)
+
+			blockingSensorData = nil
+
+			blockedByBeacon := false
+			for _, v := range *sensorData {
+				if x < v.sensorMinX || x > v.sensorMaxX || y < v.sensorMinY || y > v.sensorMaxY {
+					continue
+				}
+
+				if (abs(v.x-x) + abs(v.y-y)) <= v.sensorRange {
+					blockingSensorData = &v
+					break
+				}
 			}
+
+			if blockedByBeacon {
+				continue
+			}
+
+			if blockingSensorData != nil {
+				// we have just entered a diamond/triangle that is blocked by a sensor
+				// figure out the furthest Y value of that shape along this X row
+
+				xDistanceToSensor := abs(blockingSensorData.x - x)
+
+				// manhattan distance to the sensor means that if we know how far the x distance is,
+				// we can figure out the y reach of the sensor
+				yReach := blockingSensorData.sensorRange - xDistanceToSensor
+
+				// calculate the max y value of the region this sensor covers, using the reach we calculated
+				sensorMaxY := blockingSensorData.y + yReach
+
+				// fmt.Printf("I am at %d, %d and I am blocked by a sensor at %d, %d that has a reach of %d.  The x distance to the sensor is %d, the y reach is %d, and the sensor max y is %d\n", x, y, blockingSensorData.x, blockingSensorData.y, blockingSensorData.sensorRange, xDistanceToSensor, yReach, sensorMaxY)
+				if y < sensorMaxY {
+					y = sensorMaxY
+				}
+
+				continue
+			}
+
+			tuningFrequency := 4000000*x + y
+			fmt.Printf("Found a spot at x=%d, y=%d, tuning frequency: %d\n", x, y, tuningFrequency)
 		}
 	}
 }
