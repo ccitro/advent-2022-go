@@ -14,10 +14,6 @@ type SensorData struct {
 	beaconX     int
 	beaconY     int
 	sensorRange int
-	sensorMinX  int
-	sensorMaxX  int
-	sensorMinY  int
-	sensorMaxY  int
 }
 
 func readSensorData(file *os.File) *[]SensorData {
@@ -37,19 +33,11 @@ func readSensorData(file *os.File) *[]SensorData {
 		xDistance := abs(x - beaconX)
 		yDistance := abs(y - beaconY)
 		sensorRange := xDistance + yDistance
-		sensorMinX := x - sensorRange
-		sensorMaxX := x + sensorRange
-		sensorMinY := y - sensorRange
-		sensorMaxY := y + sensorRange
 
-		sensorData = append(sensorData, SensorData{x, y, beaconX, beaconY, sensorRange, sensorMinX, sensorMaxX, sensorMinY, sensorMaxY})
+		sensorData = append(sensorData, SensorData{x, y, beaconX, beaconY, sensorRange})
 	}
 
 	return &sensorData
-}
-
-func (s *SensorData) print() {
-	fmt.Printf("Sensor at x=%d, y=%d: closest beacon is at x=%d, y=%d\n", s.x, s.y, s.beaconX, s.beaconY)
 }
 
 func abs(x int) int {
@@ -135,20 +123,11 @@ func part2(file *os.File) {
 
 			blockingSensorData = nil
 
-			blockedByBeacon := false
 			for _, v := range *sensorData {
-				if x < v.sensorMinX || x > v.sensorMaxX || y < v.sensorMinY || y > v.sensorMaxY {
-					continue
-				}
-
 				if (abs(v.x-x) + abs(v.y-y)) <= v.sensorRange {
 					blockingSensorData = &v
 					break
 				}
-			}
-
-			if blockedByBeacon {
-				continue
 			}
 
 			if blockingSensorData != nil {
