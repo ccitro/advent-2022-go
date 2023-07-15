@@ -50,7 +50,8 @@ type Chamber struct {
 var chamber Chamber
 
 const CHAMBER_WIDTH = 7
-const LONGEST_PERFORATED_STRETCH = 1000
+const ARRAY_CAPACITY = 100000
+const CAPACITY_BUFFER = 1000
 const ROCK_START_BOT_BUFFER = 3
 const ROCK_START_LEFT_BUFFER = 2
 const CONTENTS_SETTLED_ROCK = 1
@@ -79,7 +80,7 @@ func loadPuzzle(file *os.File) {
 func makeChamber() {
 	chamber = Chamber{
 		highestSettledPoint:     0,
-		rocks:                   make([][]int, LONGEST_PERFORATED_STRETCH),
+		rocks:                   make([][]int, ARRAY_CAPACITY),
 		fallingPieceSeq:         -1,
 		fallingPieceLowestPoint: 0,
 		heightBelowFLoor:        0,
@@ -177,8 +178,8 @@ func settleRock() {
 	chamber.fallingPieceLowestPoint = -1
 	chamber.fallingPieceSeq = -1
 
-	if solidRockRow != -1 {
-		trimChamber(solidRockRow)
+	if solidRockRow != -1 && solidRockRow > (ARRAY_CAPACITY-CAPACITY_BUFFER) {
+		trimChamber(solidRockRow + 1)
 	}
 }
 
@@ -189,7 +190,7 @@ func trimChamber(solidRockRow int) {
 	savedRocks := chamber.rocks[solidRockRow:]
 	chamber.rocks = append(savedRocks, trashedRocks...)
 
-	for i := LONGEST_PERFORATED_STRETCH - 1; i >= solidRockRow; i-- {
+	for i := ARRAY_CAPACITY - 1; i >= solidRockRow; i-- {
 		for j := 0; j <= CHAMBER_WIDTH-1; j++ {
 			chamber.rocks[i][j] = 0
 		}
