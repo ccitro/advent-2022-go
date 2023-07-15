@@ -185,12 +185,15 @@ func settleRock() {
 func trimChamber(solidRockRow int) {
 	// fmt.Printf("Trimming chamber from row %d\n", solidRockRow)
 
-	newRocks := chamber.rocks[solidRockRow:]
-	newRocks = append(newRocks, make([][]int, solidRockRow)...)
+	trashedRocks := chamber.rocks[:solidRockRow]
+	savedRocks := chamber.rocks[solidRockRow:]
+	chamber.rocks = append(savedRocks, trashedRocks...)
+
 	for i := LONGEST_PERFORATED_STRETCH - 1; i >= solidRockRow; i-- {
-		newRocks[i] = make([]int, CHAMBER_WIDTH)
+		for j := 0; j <= CHAMBER_WIDTH-1; j++ {
+			chamber.rocks[i][j] = 0
+		}
 	}
-	chamber.rocks = newRocks
 
 	chamber.heightBelowFLoor += solidRockRow
 	chamber.highestSettledPoint -= solidRockRow
@@ -264,7 +267,10 @@ func (c *Chamber) print() {
 }
 
 func doSimulation(totalRockCount int) {
-	reportingCount := 100
+	reportingCount := 5
+	if totalRockCount > 10000 {
+		reportingCount = 100000
+	}
 	reportingInterval := totalRockCount / reportingCount
 	startTime := time.Now()
 
@@ -344,7 +350,7 @@ func doSimulation(totalRockCount int) {
 	}
 
 	println(chamber.highestSettledPoint + chamber.heightBelowFLoor)
-
+	fmt.Printf("Completed in %f milliseconds\n", time.Since(startTime).Seconds()*1000)
 }
 
 func part1() {
