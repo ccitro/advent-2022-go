@@ -40,7 +40,7 @@ var shapes = []Shape{
 var shapeHeights = []int{1, 3, 3, 4, 2}
 
 type Chamber struct {
-	rocks                   [][]int
+	rocks                   [][]bool
 	highestSettledPoint     int
 	fallingPieceSeq         int
 	fallingPieceLowestPoint int
@@ -50,12 +50,10 @@ type Chamber struct {
 var chamber Chamber
 
 const CHAMBER_WIDTH = 7
-const ARRAY_CAPACITY = 100000
+const ARRAY_CAPACITY = 50000
 const CAPACITY_BUFFER = 1000
 const ROCK_START_BOT_BUFFER = 3
 const ROCK_START_LEFT_BUFFER = 2
-const CONTENTS_SETTLED_ROCK = 1
-const CONTENTS_FALLING_ROCK = 2
 
 func loadPuzzle(file *os.File) {
 	scanner := bufio.NewScanner(file)
@@ -80,160 +78,53 @@ func loadPuzzle(file *os.File) {
 func makeChamber() {
 	chamber = Chamber{
 		highestSettledPoint:     0,
-		rocks:                   make([][]int, ARRAY_CAPACITY),
+		rocks:                   make([][]bool, ARRAY_CAPACITY),
 		fallingPieceSeq:         -1,
 		fallingPieceLowestPoint: 0,
 		heightBelowFLoor:        0,
 	}
 	for i := range chamber.rocks {
-		chamber.rocks[i] = make([]int, CHAMBER_WIDTH)
+		chamber.rocks[i] = make([]bool, CHAMBER_WIDTH)
 	}
 }
 
-func placeShape(shapeSeq int) {
-	bottom := chamber.highestSettledPoint + ROCK_START_BOT_BUFFER
-	left := ROCK_START_LEFT_BUFFER
-	shape := shapes[shapeSeq]
+func trimChamber() {
+	// assume that no rock will ever far this far below again
+	trimFrom := chamber.highestSettledPoint - 100
 
+	// fmt.Printf("Trimming chamber from row %d\n", trimFrom)
+	relevantRocks := chamber.rocks[trimFrom:]
+	reusedRocks := chamber.rocks[:trimFrom]
+	chamber.rocks = append(relevantRocks, reusedRocks...)
+	for i := ARRAY_CAPACITY - 1; i >= ARRAY_CAPACITY-trimFrom; i-- {
+		for j := 0; j < CHAMBER_WIDTH; j++ {
+			chamber.rocks[i][j] = false
+		}
+	}
+
+	chamber.heightBelowFLoor += trimFrom
+	chamber.highestSettledPoint -= trimFrom
+}
+
+func isValidPosition(shape Shape, x int, y int) bool {
 	for _, v := range shape {
-		x := v[0] + left
-		y := v[1] + bottom
-		chamber.rocks[y][x] = CONTENTS_FALLING_ROCK
-	}
-
-	chamber.fallingPieceSeq = shapeSeq
-	chamber.fallingPieceLowestPoint = bottom
-}
-
-func applyJet(jetSeq int) bool {
-	if chamber.fallingPieceSeq == -1 {
-		return false
-	}
-
-	dir := jetPattern[jetSeq]
-	canMoveHorizontally := true
-	for y := chamber.fallingPieceLowestPoint; y < chamber.fallingPieceLowestPoint+shapeHeights[chamber.fallingPieceSeq]; y++ {
-		for x, contents := range chamber.rocks[y] {
-			if contents == CONTENTS_FALLING_ROCK {
-				if (dir == -1 && x == 0) || (dir == 1 && x == len(chamber.rocks[y])-1) {
-					canMoveHorizontally = false
-					break
-				}
-
-				neighborContents := chamber.rocks[y][x+dir]
-				if neighborContents == CONTENTS_SETTLED_ROCK {
-					canMoveHorizontally = false
-					break
-				}
-			}
+		if y+v[1] < 0 {
+			return false
+		}
+		if x+v[0] < 0 || x+v[0] >= CHAMBER_WIDTH {
+			return false
+		}
+		if chamber.rocks[y+v[1]][x+v[0]] {
+			return false
 		}
 	}
-	if !canMoveHorizontally {
-		return false
-	}
-
-	minX := 0
-	maxX := 0
-	if dir == 1 {
-		minX = len(chamber.rocks[0]) - 1
-		maxX = -1
-	} else {
-		minX = 1
-		maxX = len(chamber.rocks[0])
-	}
-
-	for y := chamber.fallingPieceLowestPoint; y < chamber.fallingPieceLowestPoint+shapeHeights[chamber.fallingPieceSeq]; y++ {
-		for x := minX; x != maxX; x -= dir {
-			if chamber.rocks[y][x] == CONTENTS_FALLING_ROCK {
-				chamber.rocks[y][x] = 0
-				chamber.rocks[y][x+dir] = CONTENTS_FALLING_ROCK
-			}
-		}
-	}
-
 	return true
 }
 
-func settleRock() {
-	solidRockRow := -1
-	for y := chamber.fallingPieceLowestPoint; y < chamber.fallingPieceLowestPoint+shapeHeights[chamber.fallingPieceSeq]; y++ {
-		rowIsSolidRock := true
-		for x := 0; x < len(chamber.rocks[y]); x++ {
-			if chamber.rocks[y][x] == CONTENTS_FALLING_ROCK {
-				chamber.rocks[y][x] = CONTENTS_SETTLED_ROCK
-			} else if chamber.rocks[y][x] != CONTENTS_SETTLED_ROCK {
-				rowIsSolidRock = false
-			}
-		}
-		if rowIsSolidRock && y > solidRockRow {
-			solidRockRow = y
-		}
+func placeShape(shape Shape, x int, y int) {
+	for _, v := range shape {
+		chamber.rocks[y+v[1]][x+v[0]] = true
 	}
-
-	pieceHighest := chamber.fallingPieceLowestPoint + shapeHeights[chamber.fallingPieceSeq]
-	if pieceHighest > chamber.highestSettledPoint {
-		chamber.highestSettledPoint = pieceHighest
-	}
-
-	chamber.fallingPieceLowestPoint = -1
-	chamber.fallingPieceSeq = -1
-
-	if solidRockRow != -1 && solidRockRow > (ARRAY_CAPACITY-CAPACITY_BUFFER) {
-		trimChamber(solidRockRow + 1)
-	}
-}
-
-func trimChamber(solidRockRow int) {
-	// fmt.Printf("Trimming chamber from row %d\n", solidRockRow)
-
-	trashedRocks := chamber.rocks[:solidRockRow]
-	savedRocks := chamber.rocks[solidRockRow:]
-	chamber.rocks = append(savedRocks, trashedRocks...)
-
-	for i := ARRAY_CAPACITY - 1; i >= solidRockRow; i-- {
-		for j := 0; j <= CHAMBER_WIDTH-1; j++ {
-			chamber.rocks[i][j] = 0
-		}
-	}
-
-	chamber.heightBelowFLoor += solidRockRow
-	chamber.highestSettledPoint -= solidRockRow
-}
-
-func applyGravity() bool {
-	if chamber.fallingPieceSeq == -1 {
-		return false
-	}
-
-	canFallDown := true
-	for y := chamber.fallingPieceLowestPoint; y < chamber.fallingPieceLowestPoint+shapeHeights[chamber.fallingPieceSeq]; y++ {
-
-		for x, contents := range chamber.rocks[y] {
-			if contents == CONTENTS_FALLING_ROCK {
-				if y == 0 || chamber.rocks[y-1][x] == CONTENTS_SETTLED_ROCK {
-					canFallDown = false
-					break
-				}
-			}
-		}
-	}
-
-	if !canFallDown {
-		settleRock()
-		return false
-	}
-
-	for y := chamber.fallingPieceLowestPoint; y < chamber.fallingPieceLowestPoint+shapeHeights[chamber.fallingPieceSeq]; y++ {
-		for x, contents := range chamber.rocks[y] {
-			if contents == CONTENTS_FALLING_ROCK {
-				chamber.rocks[y][x] = 0
-				chamber.rocks[y-1][x] = CONTENTS_FALLING_ROCK
-			}
-		}
-	}
-
-	chamber.fallingPieceLowestPoint--
-	return true
 }
 
 func (c *Chamber) print() {
@@ -248,11 +139,8 @@ func (c *Chamber) print() {
 	for y := maxHeight; y >= 0; y-- {
 		print("|")
 		for x := 0; x < len(c.rocks[y]); x++ {
-			contents := c.rocks[y][x]
-			if contents == CONTENTS_SETTLED_ROCK {
+			if c.rocks[y][x] {
 				print("#")
-			} else if contents == CONTENTS_FALLING_ROCK {
-				print("@")
 			} else {
 				print(".")
 			}
@@ -268,85 +156,57 @@ func (c *Chamber) print() {
 }
 
 func doSimulation(totalRockCount int) {
-	reportingCount := 5
+	reportingInterval := 200
 	if totalRockCount > 10000 {
-		reportingCount = 100000
+		reportingInterval = 10000000
 	}
-	reportingInterval := totalRockCount / reportingCount
 	startTime := time.Now()
 
 	makeChamber()
 
-	rocksRemaining := totalRockCount
+	rocksCompleted := 0
 	shapeSeq := -1
 	jetSeq := -1
-	keyRockNumber := -1
 
-	for rocksRemaining > 0 {
-		if rocksRemaining%reportingInterval == 0 {
+	for rocksCompleted < totalRockCount {
+		if rocksCompleted%reportingInterval == 0 && rocksCompleted > 0 {
 			elapsedSeconds := time.Since(startTime).Seconds()
-			rocksCompleted := totalRockCount - rocksRemaining
 			if rocksCompleted > 0 {
-				remainingSeconds := (elapsedSeconds / float64(rocksCompleted)) * float64(rocksRemaining)
-
-				fmt.Printf("%d rocks remaining, %d seconds remaining\n", rocksRemaining, int(remainingSeconds))
+				remainingSeconds := (elapsedSeconds / float64(rocksCompleted)) * float64(totalRockCount-rocksCompleted)
+				fmt.Printf("Completed %d rocks in %f seconds, %f remaining\n", rocksCompleted, elapsedSeconds, remainingSeconds)
 			}
 		}
+		rocksCompleted++
 
-		rocksRemaining--
 		shapeSeq++
-		if shapeSeq >= len(shapes) {
-			shapeSeq = 0
-		}
+		shape := shapes[shapeSeq%len(shapes)]
+		shapeX := 2
+		shapeY := chamber.highestSettledPoint + ROCK_START_BOT_BUFFER
 
-		placeShape(shapeSeq)
-
-		rockNumber := totalRockCount - rocksRemaining + 1
-		// fmt.Printf("A new rock begins falling: #%d\n", rockNumber)
-		// chamber.print()
-
-		if rockNumber == keyRockNumber+1 {
-			fmt.Printf("Lowest falling point: %d\n", chamber.fallingPieceLowestPoint)
-			fmt.Printf("Highest settled point: %d\n", chamber.highestSettledPoint)
-			panic("stop")
-		}
 		for {
 			jetSeq++
-			if jetSeq >= len(jetPattern) {
-				jetSeq = 0
+			jet := jetPattern[jetSeq%len(jetPattern)]
+			newShapeX := shapeX + jet
+			if isValidPosition(shape, newShapeX, shapeY) {
+				shapeX = newShapeX
 			}
 
-			moved := applyJet(jetSeq)
-			dir := "left"
-			if jetPattern[jetSeq] == 1 {
-				dir = "right"
-			}
-
-			if rockNumber == keyRockNumber {
-				fmt.Printf("Jet of gas pushes rock %s", dir)
-				if moved {
-					println(":")
-				} else {
-					println(", but nothing happens:")
+			newShapeY := shapeY - 1
+			if newShapeY >= 0 && isValidPosition(shape, shapeX, newShapeY) {
+				shapeY = newShapeY
+			} else {
+				placeShape(shape, shapeX, shapeY)
+				highestShapeY := shapeY + shapeHeights[shapeSeq%len(shapes)]
+				if highestShapeY > chamber.highestSettledPoint {
+					chamber.highestSettledPoint = highestShapeY
 				}
-				chamber.print()
 
-			}
-
-			movedDown := applyGravity()
-			if rockNumber == keyRockNumber {
-				print("Rock falls 1 unit")
-				if movedDown {
-					println(":")
-				} else {
-					println(", causing it to come to rest:")
+				if chamber.highestSettledPoint > ARRAY_CAPACITY-CAPACITY_BUFFER {
+					trimChamber()
 				}
-				chamber.print()
-			}
-
-			if !movedDown {
 				break
 			}
+
 		}
 	}
 
