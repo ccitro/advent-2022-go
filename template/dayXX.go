@@ -1,14 +1,29 @@
 package main
 
 import (
+	"bufio"
 	"os"
 	"strings"
 )
 
-func part1(file *os.File) {
+// var puzzle ...
+
+func loadPuzzle(file *os.File) {
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+
+		// @todo
+	}
 }
 
-func part2(file *os.File) {
+func part1() {
+}
+
+func part2() {
 }
 
 func main() {
@@ -25,5 +40,6 @@ func main() {
 
 	file, _ := os.Open(filename)
 	defer file.Close()
-	method(file)
+	loadPuzzle(file)
+	method()
 }
