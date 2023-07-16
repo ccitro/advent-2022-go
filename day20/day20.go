@@ -91,9 +91,9 @@ func (l *CyclicDoubleLinkedList) shiftNodeRight(node *Node) {
 }
 
 func (l *CyclicDoubleLinkedList) printAnswer() {
-	puzzleFile.print()
+	l.print()
 
-	current := puzzleFile.head
+	current := l.head
 	for {
 		if current.data == 0 {
 			break
@@ -122,20 +122,20 @@ func (l *CyclicDoubleLinkedList) printAnswer() {
 }
 
 func (l *CyclicDoubleLinkedList) mix() {
-	for i := 0; i < puzzleFile.capacity; i++ {
-		node := puzzleFile.findSeq(i)
+	for i := 0; i < l.capacity; i++ {
+		node := l.findSeq(i)
 		shiftAmount := node.data
 
-		shiftAmount %= (puzzleFile.capacity - 1)
+		shiftAmount %= (l.capacity - 1)
 
 		// these could be made more efficient by making a shiftNode method with a shiftAmount parameter
 		// we're still fast enough with the current minimalist approach
 		for shiftAmount > 0 {
-			puzzleFile.shiftNodeRight(node)
+			l.shiftNodeRight(node)
 			shiftAmount--
 		}
 		for shiftAmount < 0 {
-			puzzleFile.shiftNodeLeft(node)
+			l.shiftNodeLeft(node)
 			shiftAmount++
 		}
 	}
