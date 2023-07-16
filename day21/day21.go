@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -81,7 +82,75 @@ func part1() {
 	println(val)
 }
 
+func planInvolvesHuman(id string) bool {
+	if id == "humn" {
+		return true
+	}
+
+	plan, ok := monkeyPlans[id]
+	if !ok {
+		panic("Unknown monkey: " + id)
+	}
+
+	switch plan := plan.(type) {
+	case MonkeyPlanNumber:
+		return false
+	case MonkeyPlanMath:
+		return planInvolvesHuman(plan.left) || planInvolvesHuman(plan.right)
+	default:
+		panic("Unknown plan type")
+	}
+}
+
+func getExpression(id string) string {
+	if id == "humn" {
+		return "x"
+	}
+	plan := monkeyPlans[id]
+	switch plan := plan.(type) {
+	case MonkeyPlanNumber:
+		return fmt.Sprintf("%d", plan)
+	case MonkeyPlanMath:
+		left := ""
+		right := ""
+		if planInvolvesHuman(plan.left) {
+			left = getExpression(plan.left)
+			right = fmt.Sprintf("%d", evaluateFrom(plan.right))
+		} else {
+			left = fmt.Sprintf("%d", evaluateFrom(plan.left))
+			right = getExpression(plan.right)
+		}
+
+		if plan.op == "*" || plan.op == "/" {
+			return fmt.Sprintf("%s%s%s", left, plan.op, right)
+		}
+		return fmt.Sprintf("(%s%s%s)", left, plan.op, right)
+	default:
+		panic("Unknown plan type")
+	}
+}
+
 func part2() {
+	rootMonkeyPlan := monkeyPlans["root"].(MonkeyPlanMath)
+
+	humanTree := ""
+	monkeyTreeValue := -1
+
+	if planInvolvesHuman(rootMonkeyPlan.left) {
+		humanTree = rootMonkeyPlan.left
+		monkeyTreeValue = evaluateFrom(rootMonkeyPlan.right)
+	} else {
+		humanTree = rootMonkeyPlan.right
+		monkeyTreeValue = evaluateFrom(rootMonkeyPlan.left)
+	}
+
+	fmt.Printf("Need to make tree starting at %s equal %d\n", humanTree, monkeyTreeValue)
+
+	textDescription := getExpression(humanTree)
+	fmt.Printf("%d=%s\n", monkeyTreeValue, textDescription)
+
+	// the next step is to solve the equation above for x
+	// i used an external tool to do this
 }
 
 func main() {
