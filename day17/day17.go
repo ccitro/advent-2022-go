@@ -44,14 +44,12 @@ type Chamber struct {
 	highestSettledPoint     int
 	fallingPieceSeq         int
 	fallingPieceLowestPoint int
-	heightBelowFLoor        int
 }
 
 var chamber Chamber
 
 const CHAMBER_WIDTH = 7
-const ARRAY_CAPACITY = 50000
-const CAPACITY_BUFFER = 1000
+const ARRAY_CAPACITY = 10000
 const ROCK_START_BOT_BUFFER = 3
 const ROCK_START_LEFT_BUFFER = 2
 
@@ -81,29 +79,10 @@ func makeChamber() {
 		rocks:                   make([][]bool, ARRAY_CAPACITY),
 		fallingPieceSeq:         -1,
 		fallingPieceLowestPoint: 0,
-		heightBelowFLoor:        0,
 	}
 	for i := range chamber.rocks {
 		chamber.rocks[i] = make([]bool, CHAMBER_WIDTH)
 	}
-}
-
-func trimChamber() {
-	// assume that no rock will ever far this far below again
-	trimFrom := chamber.highestSettledPoint - 100
-
-	// fmt.Printf("Trimming chamber from row %d\n", trimFrom)
-	relevantRocks := chamber.rocks[trimFrom:]
-	reusedRocks := chamber.rocks[:trimFrom]
-	chamber.rocks = append(relevantRocks, reusedRocks...)
-	for i := ARRAY_CAPACITY - 1; i >= ARRAY_CAPACITY-trimFrom; i-- {
-		for j := 0; j < CHAMBER_WIDTH; j++ {
-			chamber.rocks[i][j] = false
-		}
-	}
-
-	chamber.heightBelowFLoor += trimFrom
-	chamber.highestSettledPoint -= trimFrom
 }
 
 func isValidPosition(shape Shape, x int, y int) bool {
@@ -155,6 +134,17 @@ func (c *Chamber) print() {
 	println()
 }
 
+type PieceJetCombo struct {
+	piece int
+	jet   int
+}
+
+type ComboState struct {
+	seenCount           int
+	pieceCount          int
+	highestSettledPoint int
+}
+
 func doSimulation(totalRockCount int) {
 	reportingInterval := 200
 	if totalRockCount > 10000 {
@@ -167,6 +157,8 @@ func doSimulation(totalRockCount int) {
 	rocksCompleted := 0
 	shapeSeq := -1
 	jetSeq := -1
+	cycleHeightAdded := 0
+	states := make(map[PieceJetCombo]*ComboState)
 
 	for rocksCompleted < totalRockCount {
 		if rocksCompleted%reportingInterval == 0 && rocksCompleted > 0 {
@@ -201,8 +193,33 @@ func doSimulation(totalRockCount int) {
 					chamber.highestSettledPoint = highestShapeY
 				}
 
-				if chamber.highestSettledPoint > ARRAY_CAPACITY-CAPACITY_BUFFER {
-					trimChamber()
+				// i was going to convert the chamber to an array of ints, where each int is row with bitwise flags for each column
+				// collision checks and writing to the chamber could be done with bitwise AND and OR operators, but
+				// even so doing as many iterations as part 2 requires would probably take too long and require
+				// cyclical arrays to avoid having a chamber that takes up too much memory
+
+				// instead, this code finds a repeating pattern in the order that pieces and jets come up,
+				// and uses that to skip ahead in the simulation
+				if cycleHeightAdded == 0 {
+					combo := PieceJetCombo{piece: shapeSeq % len(shapes), jet: jetSeq % len(jetPattern)}
+					state, ok := states[combo]
+					if ok && state.seenCount == 2 {
+						topIncrease := chamber.highestSettledPoint - state.highestSettledPoint
+						pieceIncrease := rocksCompleted - state.pieceCount
+						maxRepeatPossible := (totalRockCount - rocksCompleted) / pieceIncrease
+						cycleHeightAdded = topIncrease * maxRepeatPossible
+						rocksCompleted += pieceIncrease * maxRepeatPossible
+						fmt.Printf("Skipping %d cycles by adding %d rocks which will increase height by %d\n", maxRepeatPossible, pieceIncrease*maxRepeatPossible, topIncrease*maxRepeatPossible)
+					}
+
+					if !ok {
+						state = &ComboState{seenCount: 1, pieceCount: rocksCompleted, highestSettledPoint: chamber.highestSettledPoint}
+						states[combo] = state
+					} else {
+						state.seenCount++
+						state.pieceCount = rocksCompleted
+						state.highestSettledPoint = chamber.highestSettledPoint
+					}
 				}
 				break
 			}
@@ -210,7 +227,7 @@ func doSimulation(totalRockCount int) {
 		}
 	}
 
-	println(chamber.highestSettledPoint + chamber.heightBelowFLoor)
+	println(chamber.highestSettledPoint + cycleHeightAdded)
 	fmt.Printf("Completed in %f milliseconds\n", time.Since(startTime).Seconds()*1000)
 }
 
