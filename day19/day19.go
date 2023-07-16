@@ -109,8 +109,18 @@ func deriveChildStates(state *State, blueprint *Blueprint) []*State {
 		return []*State{makeGeodeBotState}
 	}
 
+	idleWillEnableGeodeBot := !canMakeGeodeBot && (state.ore < blueprint.geodeOreCost) && (state.obsidian < blueprint.geodeObsidianCost) && (state.oreBots > 0) && (state.obsidianBots > 0)
+	idleWillEnableObsidianBot := !canMakeObsidianBot && (state.ore < blueprint.obsidianOreCost) && (state.clay < blueprint.obsidianClayCost) && (state.oreBots > 0) && (state.clayBots > 0)
+	idleWillEnableClayBot := !canMakeClayBot && (state.ore < blueprint.clayOreCost) && (state.oreBots > 0)
+	idleWillEnableOreBot := !canMakeOreBot && (state.ore < blueprint.oreOreCost)
+
+	idleAllowed := idleWillEnableOreBot || idleWillEnableClayBot || idleWillEnableObsidianBot || idleWillEnableGeodeBot
+
 	states := make([]*State, 0)
-	states = append(states, idleState)
+
+	if idleAllowed {
+		states = append(states, idleState)
+	}
 
 	if canMakeObsidianBot {
 		makeObsidianBotState := copyState(idleState)
