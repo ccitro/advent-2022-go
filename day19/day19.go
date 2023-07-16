@@ -185,6 +185,7 @@ func (blueprint *Blueprint) print() {
 
 func part1() {
 	start := time.Now()
+	timeAlloted := 24
 	totalQuality := 0
 	stateBestResultCache = make(map[State]int)
 
@@ -195,7 +196,7 @@ func part1() {
 		maps.Clear(stateBestResultCache)
 		blueprint.print()
 
-		initialState := State{timeRemaining: 24, oreBots: 1}
+		initialState := State{timeRemaining: timeAlloted, oreBots: 1}
 		maxGeodes := calculateMaxGeodes(&initialState, &blueprint)
 		fmt.Printf("Blueprint %d: Max geodes: %d. Cache hit: %d, miss: %d\n", blueprint.id, maxGeodes, cacheHit, cacheMiss)
 		fmt.Printf("Blueprint time: %s\n", time.Since(blueprintStart))
@@ -207,6 +208,28 @@ func part1() {
 }
 
 func part2() {
+	start := time.Now()
+	timeAlloted := 32
+	blueprints = blueprints[0:2]
+	outputProduct := 1
+	stateBestResultCache = make(map[State]int)
+
+	for _, blueprint := range blueprints {
+		blueprintStart := time.Now()
+		cacheHit = 0
+		cacheMiss = 0
+		maps.Clear(stateBestResultCache)
+		blueprint.print()
+
+		initialState := State{timeRemaining: timeAlloted, oreBots: 1}
+		maxGeodes := calculateMaxGeodes(&initialState, &blueprint)
+		fmt.Printf("Blueprint %d: Max geodes: %d. Cache hit: %d, miss: %d\n", blueprint.id, maxGeodes, cacheHit, cacheMiss)
+		fmt.Printf("Blueprint time: %s\n", time.Since(blueprintStart))
+		outputProduct *= maxGeodes
+	}
+
+	println(outputProduct)
+	fmt.Printf("Time: %s\n", time.Since(start))
 }
 
 func main() {
