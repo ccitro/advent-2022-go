@@ -30,6 +30,10 @@ type Blueprint struct {
 	obsidianClayCost  int
 	geodeOreCost      int
 	geodeObsidianCost int
+
+	maxOreBots      int
+	maxClayBots     int
+	maxObsidianBots int
 }
 
 var blueprints []Blueprint
@@ -60,8 +64,44 @@ func loadPuzzle(file *os.File) {
 			&id, &oreOreCost, &clayOreCost, &obsidianOreCost, &obsidianClayCost, &geodeOreCost, &geodeObsidianCost,
 		)
 
+		// we will never need more of a given bot than it takes to produce the most expensive bot that uses that resource
+		// for example, consider oreBots, where clay bots cost 2 ore, obsidian bots cost 3 ore, and geode bots cost 2 ore
+		// if we have 3 ore bots, then we can make any of those bots on a given turn.  by the time we do that and another
+		// turn comes along, we'll still have 3 ore bots, so we can make any of those bots again.  so we'll never need more
+
+		maxOreBotsAllowed := oreOreCost
+		if clayOreCost > maxOreBotsAllowed {
+			maxOreBotsAllowed = clayOreCost
+		}
+		if obsidianOreCost > maxOreBotsAllowed {
+			maxOreBotsAllowed = obsidianOreCost
+		}
+		if geodeOreCost > maxOreBotsAllowed {
+			maxOreBotsAllowed = geodeOreCost
+		}
+
+		maxClayBotsAllowed := clayOreCost
+		if obsidianClayCost > maxClayBotsAllowed {
+			maxClayBotsAllowed = obsidianClayCost
+		}
+		if geodeObsidianCost > maxClayBotsAllowed {
+			maxClayBotsAllowed = geodeObsidianCost
+		}
+
+		maxObsidianBotsAllowed := obsidianClayCost
+		if geodeObsidianCost > maxObsidianBotsAllowed {
+			maxObsidianBotsAllowed = geodeObsidianCost
+		}
+
 		blueprint := Blueprint{
-			id: id, oreOreCost: oreOreCost, clayOreCost: clayOreCost, obsidianOreCost: obsidianOreCost, obsidianClayCost: obsidianClayCost, geodeOreCost: geodeOreCost, geodeObsidianCost: geodeObsidianCost,
+			id:              id,
+			oreOreCost:      oreOreCost,
+			clayOreCost:     clayOreCost,
+			obsidianOreCost: obsidianOreCost, obsidianClayCost: obsidianClayCost,
+			geodeOreCost: geodeOreCost, geodeObsidianCost: geodeObsidianCost,
+			maxOreBots:      maxOreBotsAllowed,
+			maxClayBots:     maxClayBotsAllowed,
+			maxObsidianBots: maxObsidianBotsAllowed,
 		}
 		blueprints = append(blueprints, blueprint)
 	}
@@ -109,28 +149,19 @@ func deriveChildStates(state *State, blueprint *Blueprint) []*State {
 		return []*State{makeGeodeBotState}
 	}
 
+	// if we can already make every type of bot, then there is no point in idling.  we should make a bot of some sort
 	idleWillEnableGeodeBot := !canMakeGeodeBot && (state.ore < blueprint.geodeOreCost) && (state.obsidian < blueprint.geodeObsidianCost) && (state.oreBots > 0) && (state.obsidianBots > 0)
 	idleWillEnableObsidianBot := !canMakeObsidianBot && (state.ore < blueprint.obsidianOreCost) && (state.clay < blueprint.obsidianClayCost) && (state.oreBots > 0) && (state.clayBots > 0)
 	idleWillEnableClayBot := !canMakeClayBot && (state.ore < blueprint.clayOreCost) && (state.oreBots > 0)
 	idleWillEnableOreBot := !canMakeOreBot && (state.ore < blueprint.oreOreCost)
-
 	idleAllowed := idleWillEnableOreBot || idleWillEnableClayBot || idleWillEnableObsidianBot || idleWillEnableGeodeBot
 
 	states := make([]*State, 0)
-
 	if idleAllowed {
 		states = append(states, idleState)
 	}
 
-	// past a certain point, building more bots to produce more resources of a resource that we already have a lot of is not useful
-	// this value was arbitrarily chosen, but it works for the intro and input and allows the search to complete nearly instantly
-	// a better approach would be to determine if building more of the bot would fix a bottleneck later in the process,
-	// but I'm not sure how to do that without a subsearch.
-	// maybe a heuristic that considers the max cost required by the blueprint to build the bot would make more sense
-	// rather than picking a magic number
-	maxStockpile := 20
-
-	if canMakeObsidianBot && state.obsidian < maxStockpile {
+	if canMakeObsidianBot && state.obsidianBots < blueprint.maxObsidianBots {
 		makeObsidianBotState := copyState(idleState)
 		makeObsidianBotState.obsidianBots++
 		makeObsidianBotState.ore -= blueprint.obsidianOreCost
@@ -138,14 +169,14 @@ func deriveChildStates(state *State, blueprint *Blueprint) []*State {
 		states = append(states, makeObsidianBotState)
 	}
 
-	if canMakeClayBot && state.clay < maxStockpile {
+	if canMakeClayBot && state.clayBots < blueprint.maxClayBots {
 		makeClayBotState := copyState(idleState)
 		makeClayBotState.clayBots++
 		makeClayBotState.ore -= blueprint.clayOreCost
 		states = append(states, makeClayBotState)
 	}
 
-	if canMakeOreBot && state.ore < maxStockpile {
+	if canMakeOreBot && state.oreBots < blueprint.maxOreBots {
 		makeOreBotState := copyState(idleState)
 		makeOreBotState.oreBots++
 		makeOreBotState.ore -= blueprint.oreOreCost
