@@ -122,7 +122,15 @@ func deriveChildStates(state *State, blueprint *Blueprint) []*State {
 		states = append(states, idleState)
 	}
 
-	if canMakeObsidianBot {
+	// past a certain point, building more bots to produce more resources of a resource that we already have a lot of is not useful
+	// this value was arbitrarily chosen, but it works for the intro and input and allows the search to complete nearly instantly
+	// a better approach would be to determine if building more of the bot would fix a bottleneck later in the process,
+	// but I'm not sure how to do that without a subsearch.
+	// maybe a heuristic that considers the max cost required by the blueprint to build the bot would make more sense
+	// rather than picking a magic number
+	maxStockpile := 20
+
+	if canMakeObsidianBot && state.obsidian < maxStockpile {
 		makeObsidianBotState := copyState(idleState)
 		makeObsidianBotState.obsidianBots++
 		makeObsidianBotState.ore -= blueprint.obsidianOreCost
@@ -130,14 +138,14 @@ func deriveChildStates(state *State, blueprint *Blueprint) []*State {
 		states = append(states, makeObsidianBotState)
 	}
 
-	if canMakeClayBot {
+	if canMakeClayBot && state.clay < maxStockpile {
 		makeClayBotState := copyState(idleState)
 		makeClayBotState.clayBots++
 		makeClayBotState.ore -= blueprint.clayOreCost
 		states = append(states, makeClayBotState)
 	}
 
-	if canMakeOreBot {
+	if canMakeOreBot && state.ore < maxStockpile {
 		makeOreBotState := copyState(idleState)
 		makeOreBotState.oreBots++
 		makeOreBotState.ore -= blueprint.oreOreCost
@@ -210,7 +218,7 @@ func part1() {
 func part2() {
 	start := time.Now()
 	timeAlloted := 32
-	blueprints = blueprints[0:2]
+	blueprints = blueprints[0:3]
 	outputProduct := 1
 	stateBestResultCache = make(map[State]int)
 
