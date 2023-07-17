@@ -151,6 +151,7 @@ func part2() {
 
 	// the next step is to solve the equation above for x
 	// i used an external tool to do this
+	// @todo consider implementing this in go, as an equation solver or some sort of tree rebalancer?
 }
 
 func main() {

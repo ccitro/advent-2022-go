@@ -54,6 +54,7 @@ func mod(x, m int) int {
 }
 
 func search(start Pos, exit Pos) int {
+	// @todo fix this
 	step := 1
 	height := len(maze)
 	width := len(maze[0])
