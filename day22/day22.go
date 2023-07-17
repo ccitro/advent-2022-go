@@ -204,14 +204,23 @@ func wrapAround(pos Pos, dir int) Pos {
 	}
 }
 
-func applyMove(node PathNodeMove) {
+func wrapAroundCube(priorPos Pos, outOfBoundsPos Pos, dir int) Pos {
+	// @todo
+	return priorPos
+}
+
+func applyMove(node PathNodeMove, useCubeWrap bool) {
 	movesRemaining := int(node)
 	for movesRemaining > 0 {
 		lastFacing[Pos{state.x, state.y}] = state.dir
 		movement := movements[state.dir]
 		newPos := Pos{state.x + movement.x, state.y + movement.y}
 		if newPos.x >= len(board[0]) || newPos.y >= len(board) || newPos.x < 0 || newPos.y < 0 || board[newPos.y][newPos.x] == BLOCK_VOID {
-			newPos = wrapAround(newPos, state.dir)
+			if useCubeWrap {
+				newPos = wrapAroundCube(Pos{state.x, state.y}, newPos, state.dir)
+			} else {
+				newPos = wrapAround(newPos, state.dir)
+			}
 		}
 
 		if board[newPos.y][newPos.x] == BLOCK_WALL {
@@ -224,12 +233,12 @@ func applyMove(node PathNodeMove) {
 	}
 }
 
-func applyPathNode(node PathNode) {
+func applyPathNode(node PathNode, useCubeRap bool) {
 	switch node := node.(type) {
 	case PathNodeRotate:
 		applyRotate(node)
 	case PathNodeMove:
-		applyMove(node)
+		applyMove(node, useCubeRap)
 	default:
 		panic("Unknown path node type")
 	}
@@ -242,7 +251,7 @@ func part1() {
 	// printPuzzleState()
 
 	for _, v := range path {
-		applyPathNode(v)
+		applyPathNode(v, false)
 		// printPuzzleState()
 	}
 
@@ -256,6 +265,22 @@ func part1() {
 }
 
 func part2() {
+	state = PuzzleState{startX, startY, startDir, 0}
+	lastFacing[Pos{startX, startY}] = startDir
+	// printPuzzleState()
+
+	for _, v := range path {
+		applyPathNode(v, true)
+		// printPuzzleState()
+	}
+
+	row := state.y + 1
+	col := state.x + 1
+	facing := state.dir
+
+	password := 1000*row + 4*col + facing
+	fmt.Printf("Ended at row=%d, col=%d, facing=%d, password=%d\n", row, col, facing, password)
+	println(password)
 }
 
 func main() {
